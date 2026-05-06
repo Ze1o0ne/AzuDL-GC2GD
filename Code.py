@@ -22,9 +22,12 @@ class AzuDlGC2GD:
     def __init__(self):
         self.project_name = "AzuDl - GC2GD"
         self.project_subtitle = "Azizi Universal Downloader - Google Colab to Google Drive"
-        self.version = "1.0.0"
+        self.version = "1.0.1"
 
-        self.base_dir = Path("/content/drive/MyDrive/AzuDl-GC2GD")
+        self.drive_mount_path = Path("/content/drive")
+        self.my_drive_path = self.drive_mount_path / "MyDrive"
+
+        self.base_dir = self.my_drive_path / "AzuDl-GC2GD"
         self.torrent_dir = self.base_dir / "TorrentDownloads"
         self.youtube_dir = self.base_dir / "YouTubeDownloads"
         self.direct_dir = self.base_dir / "DirectDownloads"
@@ -36,15 +39,8 @@ class AzuDlGC2GD:
 
     def setup(self):
         self.print_banner()
-        drive.mount("/content/drive", force_remount=False)
-
-        self.base_dir.mkdir(parents=True, exist_ok=True)
-        self.torrent_dir.mkdir(parents=True, exist_ok=True)
-        self.youtube_dir.mkdir(parents=True, exist_ok=True)
-        self.direct_dir.mkdir(parents=True, exist_ok=True)
-        self.batch_dir.mkdir(parents=True, exist_ok=True)
-        self.logs_dir.mkdir(parents=True, exist_ok=True)
-
+        self.mount_google_drive()
+        self.prepare_directories()
         self.start_aria2_rpc()
 
     def print_banner(self):
@@ -54,6 +50,63 @@ class AzuDlGC2GD:
         print("Version:", self.version)
         print("=" * 70)
 
+    def mount_google_drive(self):
+        if self.my_drive_path.exists():
+            print("Google Drive already mounted")
+            return
+
+        attempts = [
+            {"force_remount": False, "label": "standard mount"},
+            {"force_remount": True, "label": "force remount"}
+        ]
+
+        last_error = None
+
+        for attempt in attempts:
+            try:
+                print("Trying Google Drive", attempt["label"])
+                drive.mount(str(self.drive_mount_path), force_remount=attempt["force_remount"])
+
+                if self.my_drive_path.exists():
+                    print("Google Drive mounted successfully")
+                    return
+
+            except Exception as error:
+                last_error = error
+                print("Mount attempt failed:", error)
+                time.sleep(2)
+
+        self.print_drive_mount_help()
+        raise RuntimeError(f"Google Drive mount failed: {last_error}")
+
+    def print_drive_mount_help(self):
+        print("")
+        print("=" * 70)
+        print("Google Drive mount failed")
+        print("=" * 70)
+        print("Try these fixes:")
+        print("1. Runtime > Restart session")
+        print("2. Run this in a separate cell: from google.colab import drive; drive.flush_and_unmount()")
+        print("3. Use only one Google account in your browser")
+        print("4. Open Colab in Incognito mode")
+        print("5. Make sure third-party cookies are not blocked")
+        print("6. Reconnect Google Drive manually from the Colab file panel")
+        print("=" * 70)
+        print("")
+
+    def prepare_directories(self):
+        dirs = [
+            self.base_dir,
+            self.torrent_dir,
+            self.youtube_dir,
+            self.direct_dir,
+            self.batch_dir,
+            self.logs_dir
+        ]
+
+        for item in dirs:
+            item.mkdir(parents=True, exist_ok=True)
+
     def is_port_open(self, host="127.0.0.1", port=6800):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.settimeout(1)
@@ -61,6 +114,7 @@ class AzuDlGC2GD:
 
     def start_aria2_rpc(self):
         if self.is_port_open():
+            print("aria2 RPC already running")
             return
 
         cmd = [
@@ -90,6 +144,7 @@ class AzuDlGC2GD:
 
         for _ in range(30):
             if self.is_port_open():
+                print("aria2 RPC started")
                 return
             time.sleep(0.5)
 
@@ -831,6 +886,13 @@ Batch download:
 Paste multiple links.
 Empty line starts the batch process.
 
+Drive mount error fixes:
+Runtime > Restart session
+Use only one Google account
+Open Colab in Incognito mode
+Allow third-party cookies
+Run drive.flush_and_unmount before retrying
+
 Notes:
 Use only content you have the right to download.
 Some YouTube videos may require cookies or may not be available in Colab.
@@ -842,7 +904,12 @@ Torrent speed depends on seeders and peers.
 
 def main():
     app = AzuDlGC2GD()
-    app.setup()
+
+    try:
+        app.setup()
+    except Exception as error:
+        print("Startup failed:", error)
+        return
 
     while True:
         print("")
