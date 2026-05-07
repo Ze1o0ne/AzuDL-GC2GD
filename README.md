@@ -1,7 +1,7 @@
 # AzuDl - GC2GD
 
 <p align="center">
-  <a href="AzuDl-GC2GD-v1.2.0-README.fa.md">فارسی</a> · <strong>English</strong>
+  <a href="README.fa.md">فارسی</a> · <strong>English</strong>
 </p>
 
 <p align="center">
