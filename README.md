@@ -57,20 +57,6 @@ Version: 1.3.0 GUI Beta
 
 ---
 
-## What Is New in v1.2.8
-
-Version `1.2.8` focuses on torrent reliability and better torrent management.
-
-AzuDl now reads the torrent `InfoHash` before adding a `.torrent` file to aria2. If the same torrent already exists in aria2, AzuDl does not add a duplicate torrent. It detects the existing GID, resumes or monitors the existing task, and if the existing torrent is in an error state, it removes it and adds the torrent again.
-
-This prevents common aria2 errors like:
-
-```text
-InfoHash is already registered
-```
-
----
-
 ## <img src="https://img.shields.io/badge/v1.3.0-GUI%20Beta-5865F2?style=for-the-badge" alt="v1.3.0 GUI Beta">
 
 > [!IMPORTANT]
