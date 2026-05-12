@@ -629,36 +629,40 @@ class AzuDlGC2GD:
         except Exception:
             return False
 
-    def build_torrent_options(self, private=False, seed=False):
+    def build_torrent_options(self, private=False, seed=False, check_integrity=False):
         if seed:
             seed_time = "525600"
         else:
             seed_time = "0"
 
+        options = {
+            "seed-time": seed_time,
+            "seed-ratio": "0.0",
+            "bt-request-peer-speed-limit": "50K",
+            "bt-save-metadata": "true",
+            "bt-load-saved-metadata": "true"
+        }
+
         if private:
-            return {
-                "seed-time": seed_time,
-                "seed-ratio": "0.0",
+            options.update({
                 "enable-dht": "false",
                 "enable-dht6": "false",
                 "enable-peer-exchange": "false",
-                "bt-enable-lpd": "false",
-                "bt-save-metadata": "true",
-                "bt-load-saved-metadata": "true",
-                "bt-request-peer-speed-limit": "50K"
-            }
+                "bt-enable-lpd": "false"
+            })
+        else:
+            options.update({
+                "enable-dht": "true",
+                "enable-dht6": "true",
+                "enable-peer-exchange": "true",
+                "bt-enable-lpd": "true"
+            })
 
-        return {
-            "seed-time": seed_time,
-            "seed-ratio": "0.0",
-            "enable-dht": "true",
-            "enable-dht6": "true",
-            "enable-peer-exchange": "true",
-            "bt-enable-lpd": "true",
-            "bt-save-metadata": "true",
-            "bt-load-saved-metadata": "true",
-            "bt-request-peer-speed-limit": "50K"
-        }
+
+        if check_integrity:
+            options["check-integrity"] = "true"
+
+        return options
 
     def get_aria2_status(self, gid):
         keys = [
@@ -1031,7 +1035,7 @@ class AzuDlGC2GD:
 
             time.sleep(1)
 
-    def download_magnet(self, magnet, folder_name="", speed_limit="", private=False, seed=False):
+    def download_magnet(self, magnet, folder_name="", speed_limit="", private=False, seed=False, check_integrity=False):
         magnet = magnet.strip()
         folder_name = self.sanitize_name(folder_name)
         save_dir = self.torrent_dir / folder_name
@@ -1042,7 +1046,8 @@ class AzuDlGC2GD:
 
         options = self.build_torrent_options(
             private=private,
-            seed=seed
+            seed=seed,
+            check_integrity=check_integrity
         )
 
         gid = self.add_aria2_download([magnet], save_dir, speed_limit, options)
@@ -1073,7 +1078,7 @@ class AzuDlGC2GD:
         print("Download completed")
         print("Saved to:", save_dir)
 
-    def download_torrent_file(self, source, folder_name="", speed_limit="", private=False, seed=False):
+    def download_torrent_file(self, source, folder_name="", speed_limit="", private=False, seed=False, check_integrity=False):
         source = source.strip()
         folder_name = self.sanitize_name(folder_name)
         save_dir = self.torrent_dir / folder_name
@@ -1095,13 +1100,19 @@ class AzuDlGC2GD:
                 print("Existing GID:", existing_gid)
                 print("Existing status:", existing_status)
 
-                if existing_status == "error":
-                    print("Existing torrent is in error state")
-                    print("Removing old GID and adding again")
+
+                if existing_status == "error" or check_integrity:
+                    if check_integrity:
+                        print("Force recheck requested.")
+                        print("Removing existing session data to re-verify files on disk.")
+                    else:
+                        print("Existing torrent is in error state.")
+                        print("Removing old GID and adding again.")
+
                     removed = self.remove_existing_torrent_gid(existing_gid)
 
                     if not removed:
-                        raise RuntimeError("Could not remove existing errored torrent GID")
+                        raise RuntimeError("Could not remove existing torrent GID")
 
                 else:
                     print("Using existing torrent instead of adding duplicate")
@@ -1117,10 +1128,10 @@ class AzuDlGC2GD:
 
                     print("Torrent handled with existing GID")
                     return
-
         options = self.build_torrent_options(
             private=private,
-            seed=seed
+            seed=seed,
+            check_integrity=check_integrity
         )
 
         try:
@@ -1186,7 +1197,8 @@ class AzuDlGC2GD:
         speed_limit = input("Speed limit optional, example 5M: ").strip()
         seed_answer = input("Keep seeding after download? y/n: ").strip().lower()
         seed = seed_answer == "y"
-
+        check_answer = input("Force recheck existing files (check integrity)? y/n: ").strip().lower()
+        check_integrity = check_answer == "y"
         if not source:
             print("No torrent source entered")
             return
@@ -1208,7 +1220,8 @@ class AzuDlGC2GD:
             folder_name=folder_name,
             speed_limit=speed_limit,
             private=True,
-            seed=seed
+            seed=seed,
+            check_integrity=check_integrity
         )
 
     def torrent_menu(self):
@@ -1235,13 +1248,17 @@ class AzuDlGC2GD:
                     speed_limit = input("Speed limit optional, example 5M: ").strip()
                     seed_answer = input("Keep seeding after download? y/n: ").strip().lower()
                     seed = seed_answer == "y"
+                    check_answer = input("Force recheck existing files (check integrity)? y/n: ").strip().lower()
+                    check_integrity = check_answer == "y"
+
 
                     self.download_magnet(
                         magnet=magnet,
                         folder_name=folder_name,
                         speed_limit=speed_limit,
                         private=False,
-                        seed=seed
+                        seed=seed,
+                        check_integrity=check_integrity
                     )
 
                 elif choice == "2":
@@ -1250,13 +1267,16 @@ class AzuDlGC2GD:
                     speed_limit = input("Speed limit optional, example 5M: ").strip()
                     seed_answer = input("Keep seeding after download? y/n: ").strip().lower()
                     seed = seed_answer == "y"
+                    check_answer = input("Force recheck existing files (check integrity)? y/n: ").strip().lower()
+                    check_integrity = check_answer == "y"
 
                     self.download_torrent_file(
                         source=source,
                         folder_name=folder_name,
                         speed_limit=speed_limit,
                         private=False,
-                        seed=seed
+                        seed=seed,
+                        check_integrity=check_integrity
                     )
 
                 elif choice == "3":
@@ -1589,26 +1609,31 @@ class AzuDlGC2GD:
             speed_limit = input("Speed limit optional, example 5M: ").strip()
             seed_answer = input("Keep seeding after download? y/n: ").strip().lower()
             seed = seed_answer == "y"
+            check_answer = input("Force recheck existing files (check integrity)? y/n: ").strip().lower()
+            check_integrity = check_answer == "y"
 
             self.download_magnet(
                 value,
                 folder_name,
                 speed_limit,
                 private=False,
-                seed=seed
+                seed=seed,
+                check_integrity=check_integrity
             )
 
         elif link_type == "torrent_file":
             speed_limit = input("Speed limit optional, example 5M: ").strip()
             seed_answer = input("Keep seeding after download? y/n: ").strip().lower()
             seed = seed_answer == "y"
-
+            check_answer = input("Force recheck existing files (check integrity)? y/n: ").strip().lower()
+            check_integrity = check_answer == "y"
             self.download_torrent_file(
                 value,
                 folder_name,
                 speed_limit,
                 private=False,
-                seed=seed
+                seed=seed,
+                check_integrity=check_integrity
             )
 
         elif link_type == "youtube":
