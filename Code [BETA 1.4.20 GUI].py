@@ -2347,16 +2347,25 @@ class AzuDlGC2GD:
             return "bestaudio/best"
 
         if quality == "best":
-            return "bv*[vcodec!=none]+ba/bestvideo+bestaudio/best"
+            return "bestvideo[vcodec*=?vp9]+bestaudio/bestvideo[vcodec*=?avc]+bestaudio/best"
 
         if quality in ["4320", "2160", "1440", "1080", "720", "480", "360", "240", "144"]:
             return (
+                # 1. Exact height with VP9
+                f"bestvideo[height={quality}][vcodec*=?vp9]+bestaudio/"
+                # 2. Exact height with AVC (H.264)
+                f"bestvideo[height={quality}][vcodec*=?avc]+bestaudio/"
+                # 3. Exact height with any codec (fallback if neither VP9/AVC exists at this specific res)
                 f"bestvideo[height={quality}][vcodec!=none]+bestaudio/"
-                f"bestvideo[height<={quality}][vcodec!=none]+bestaudio/"
+                # 4. Nearest lower height with VP9
+                f"bestvideo[height<={quality}][vcodec*=?vp9]+bestaudio/"
+                # 5. Nearest lower height with AVC
+                f"bestvideo[height<={quality}][vcodec*=?avc]+bestaudio/"
+                # 6. Absolute final fallback
                 f"best[height<={quality}]/best"
             )
 
-        return "bv*[vcodec!=none]+ba/bestvideo+bestaudio/best"
+        return "bestvideo[vcodec*=?vp9]+bestaudio/bestvideo[vcodec*=?avc]+bestaudio/best"
 
     def download_youtube(self, url, folder_name="", quality="best", audio_only=False, playlist=True, metadata=False):
         url = url.strip()
@@ -3961,7 +3970,7 @@ class AzuDlGC2GDGUI:
         for index, title in enumerate(titles):
             tabs.set_title(index, title)
 
-        refresh_button = self.button("↻ Refresh storage", "info", "150px")
+        refresh_button = self.button("â†» Refresh storage", "info", "150px")
         refresh_button.on_click(lambda button: self.refresh_storage())
         clear_button = self.button("Clear output", "neutral", "130px")
         clear_button.on_click(lambda button: self.output.clear_output())
@@ -4029,25 +4038,25 @@ class AzuDlGC2GDGUI:
         label = str(description)
 
         icons = {
-            "Start": "▶",
-            "Download": "⬇",
-            "Save": "✓",
-            "Clear": "×",
-            "Remove": "×",
-            "Fetch": "↻",
-            "Repo": "⌁",
-            "Official": "★",
-            "Token": "◆",
-            "Storage": "◷",
-            "History": "≡",
-            "Files": "▣",
-            "Latest": "●",
+            "Start": "â–¶",
+            "Download": "â¬‡",
+            "Save": "âœ“",
+            "Clear": "Ã—",
+            "Remove": "Ã—",
+            "Fetch": "â†»",
+            "Repo": "âŒ",
+            "Official": "â˜…",
+            "Token": "â—†",
+            "Storage": "â—·",
+            "History": "â‰¡",
+            "Files": "â–£",
+            "Latest": "â—",
             "Guide": "?",
-            "Project": "★",
-            "Create": "▦",
-            "ZIP": "▦",
+            "Project": "â˜…",
+            "Create": "â–¦",
+            "ZIP": "â–¦",
             "SHA256": "#",
-            "aria2": "↯"
+            "aria2": "â†¯"
         }
 
         if not any(label.startswith(prefix + " ") for prefix in icons.values()):
